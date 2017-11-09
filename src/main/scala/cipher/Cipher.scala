@@ -53,33 +53,42 @@ trait Cipher {
   protected val vandermondeMatrix: Matrix
   protected var inputData: List[Byte]
   protected var outputData: List[Byte]
+  protected var keys: List[Byte]
   protected var numberOfBytes: Int
 
   protected val numberOfRounds = 12
   protected val numberOfFullRounds = numberOfRounds - 1
-  protected var processedRounds = 0
   protected var gf2_8 = GF(UnivariateRingZp64(2, "x")("x^8+x^4+x^3+x^2+1"), "x")
 
-  protected var encryptFlag = true
+  /* inner states of cipher */
+  protected var encryptFlag: Boolean
+  protected var processedRounds = 0
+  protected var inputMatrix: Matrix
+  protected var keysMatrix: Matrix
+  protected var reversedKeysMatrix: Matrix
 
   /* public methods */
-  def encrypt(openText: List[Byte]): List[Byte] = crypt(true, openText)
-  def decrypt(cipherText: List[Byte]): List[Byte] = crypt(false, cipherText)
+  def encrypt(openText: List[Byte], keys: List[Byte]): List[Byte] = crypt(true, openText, keys)
+  def decrypt(cipherText: List[Byte], keys: List[Byte]): List[Byte] = crypt(false, cipherText, keys)
 
   /* init cipher, prepare for crypt or encrypt */
-  def init()
+  //def init()
 
   /* reset all inner states of cipher */
-  def reset()
+  //def reset()
 
   /* methods operates with inner state of cipher */
 
-  protected def crypt(encryptFlag: Boolean, data: List[Byte]): List[Byte] = {
+  protected def crypt(encryptFlag: Boolean, data: List[Byte], keys: List[Byte]): List[Byte] = {
     this.encryptFlag = encryptFlag
     this.numberOfBytes = data.length
     this.inputData = data
+    this.keys = keys
 
-      firstRound()
+    prepareMatrices()
+    keySchedule()
+
+    firstRound()
     for (i <- 1 to numberOfFullRounds) {
       regularRound(i)
     }
@@ -90,8 +99,17 @@ trait Cipher {
 
 
   protected def keyAddition(round: Int)
-  protected def keyEvolution
-  protected def keySelection
+  protected def keyEvolution()
+  protected def keySelection()
+  protected def prepareReversedKeys()
+  protected def prepareMatrices()
+
+  protected def keySchedule() = {
+    keyEvolution()
+    keySelection()
+    prepareReversedKeys()
+  }
+
   protected def nonlinearLayer()
   protected def linearDiffusionLayer()
   protected def transposition()
@@ -108,7 +126,7 @@ trait Cipher {
     linearDiffusionLayer()
     keyAddition(round)
   }
-  
+
   protected def lastRound() = {
     nonlinearLayer()
     transposition()
